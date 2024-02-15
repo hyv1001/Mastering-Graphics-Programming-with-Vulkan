@@ -4,7 +4,7 @@
 #include "platform.hpp"
 #include "string.hpp"
 
-static const char* kDefault3DModel = "../deps/src/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
+static const char* kDefault3DModel = "../../deps/src/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
 
 #define InjectDefault3DModel() \
     if (raptor::file_exists(kDefault3DModel)) {\

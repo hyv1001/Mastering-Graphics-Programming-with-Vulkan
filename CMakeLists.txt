@@ -4,8 +4,10 @@ project(RaptorEngine VERSION 0.1.0)
 
 find_package(Vulkan REQUIRED)
 
-if (UNIX)
-find_package(SDL2 REQUIRED)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+if(UNIX)
+    find_package(SDL2 REQUIRED)
 endif()
 
 add_library(RaptorFoundation STATIC
@@ -53,7 +55,9 @@ add_library(RaptorFoundation STATIC
     source/raptor/foundation/time.hpp
 )
 
-set_property(TARGET RaptorFoundation PROPERTY CXX_STANDARD 17)
+set_target_properties(RaptorFoundation
+    PROPERTIES CXX_STANDARD 20
+    FOLDER Engine)
 
 target_compile_definitions(RaptorFoundation PRIVATE
     _CRT_SECURE_NO_WARNINGS
@@ -83,7 +87,9 @@ add_library(RaptorApp STATIC
     source/raptor/application/window.hpp
 )
 
-set_property(TARGET RaptorApp PROPERTY CXX_STANDARD 17)
+set_target_properties(RaptorApp
+    PROPERTIES CXX_STANDARD 20
+    FOLDER Engine)
 
 target_compile_definitions(RaptorApp PRIVATE
     _CRT_SECURE_NO_WARNINGS
@@ -96,9 +102,9 @@ target_compile_definitions(RaptorApp PRIVATE
 target_include_directories(RaptorApp PRIVATE
     source
     source/raptor
-    )
+)
 
-if (WIN32)
+if(WIN32)
     target_include_directories(RaptorApp PRIVATE
         binaries/SDL2-2.0.18/include)
 else()
@@ -154,7 +160,11 @@ add_library(RaptorExternal STATIC
     source/external/meshoptimizer/vfetchoptimizer.cpp
 )
 
-if (WIN32)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
+if(WIN32)
     target_sources(RaptorExternal PRIVATE
         source/external/StackWalker.cpp)
 endif()
@@ -165,7 +175,7 @@ target_compile_definitions(RaptorExternal PRIVATE
     TRACY_NO_SYSTEM_TRACING
 )
 
-if (WIN32)
+if(WIN32)
     target_include_directories(RaptorExternal PRIVATE
         binaries/SDL2-2.0.18/include
         source/raptor
@@ -178,7 +188,9 @@ else()
         ${SDL2_INCLUDE_DIRS})
 endif()
 
-set_property(TARGET RaptorExternal PROPERTY CXX_STANDARD 17)
+set_target_properties(RaptorExternal
+    PROPERTIES CXX_STANDARD 20
+    FOLDER Engine)
 
 add_subdirectory(source/chapter1)
 add_subdirectory(source/chapter2)

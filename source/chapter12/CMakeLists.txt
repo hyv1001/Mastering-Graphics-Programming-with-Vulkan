@@ -33,9 +33,11 @@ add_executable(Chapter12
     main.cpp
 )
 
-set_property(TARGET Chapter12 PROPERTY CXX_STANDARD 17)
+set_target_properties(Chapter12
+    PROPERTIES CXX_STANDARD 20
+    FOLDER Samples/Chapter12)
 
-if (WIN32)
+if(WIN32)
     target_compile_definitions(Chapter12 PRIVATE
         _CRT_SECURE_NO_WARNINGS
         WIN32_LEAN_AND_MEAN
@@ -62,7 +64,7 @@ target_include_directories(Chapter12 PRIVATE
     ${Vulkan_INCLUDE_DIRS}
 )
 
-if (WIN32)
+if(WIN32)
     target_link_directories(Chapter12 PRIVATE
         ../../binaries/assimp/windows/bin
         ../../binaries/assimp/windows/lib
@@ -79,7 +81,7 @@ else()
         ${SDL2_INCLUDE_DIRS})
 endif()
 
-if (WIN32)
+if(WIN32)
     target_link_libraries(Chapter12 PRIVATE
         assimp-vc142-mt
         SDL2)
@@ -98,7 +100,7 @@ target_link_libraries(Chapter12 PRIVATE
     ${Vulkan_LIBRARIES}
 )
 
-if (WIN32)
+if(WIN32)
     set(DLLS_TO_COPY
         ${CMAKE_CURRENT_SOURCE_DIR}/../../binaries/SDL2-2.0.18/lib/x64/SDL2.dll
         ${CMAKE_CURRENT_SOURCE_DIR}/../../binaries/assimp/windows/bin/assimp-vc142-mt.dll

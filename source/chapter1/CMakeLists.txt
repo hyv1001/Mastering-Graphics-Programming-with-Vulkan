@@ -19,9 +19,11 @@ add_executable(Chapter1
     main.cpp
 )
 
-set_property(TARGET Chapter1 PROPERTY CXX_STANDARD 17)
+set_target_properties(Chapter1
+    PROPERTIES CXX_STANDARD 20
+    FOLDER Samples/Chapter01)
 
-if (WIN32)
+if(WIN32)
     target_compile_definitions(Chapter1 PRIVATE
         _CRT_SECURE_NO_WARNINGS
         WIN32_LEAN_AND_MEAN
@@ -41,7 +43,7 @@ target_include_directories(Chapter1 PRIVATE
     ${Vulkan_INCLUDE_DIRS}
 )
 
-if (WIN32)
+if(WIN32)
     target_include_directories(Chapter1 PRIVATE
         ../../binaries/SDL2-2.0.18/include)
 
@@ -51,7 +53,6 @@ if (WIN32)
 else()
     target_include_directories(Chapter1 PRIVATE
         ${SDL2_INCLUDE_DIRS})
-
 endif()
 
 target_link_libraries(Chapter1 PRIVATE
@@ -61,7 +62,7 @@ target_link_libraries(Chapter1 PRIVATE
     ${Vulkan_LIBRARIES}
 )
 
-if (WIN32)
+if(WIN32)
     target_link_libraries(Chapter1 PRIVATE
         SDL2)
 else()
@@ -71,7 +72,7 @@ else()
         SDL2::SDL2)
 endif()
 
-if (WIN32)
+if(WIN32)
     set(DLLS_TO_COPY
         ${CMAKE_CURRENT_SOURCE_DIR}/../../binaries/SDL2-2.0.18/lib/x64/SDL2.dll
     )

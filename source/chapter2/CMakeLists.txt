@@ -19,9 +19,11 @@ add_executable(Chapter2
     main.cpp
 )
 
-set_property(TARGET Chapter2 PROPERTY CXX_STANDARD 17)
+set_target_properties(Chapter2
+    PROPERTIES CXX_STANDARD 20
+    FOLDER Samples/Chapter02)
 
-if (WIN32)
+if(WIN32)
     target_compile_definitions(Chapter2 PRIVATE
         _CRT_SECURE_NO_WARNINGS
         WIN32_LEAN_AND_MEAN
@@ -45,7 +47,7 @@ target_include_directories(Chapter2 PRIVATE
     ${Vulkan_INCLUDE_DIRS}
 )
 
-if (WIN32)
+if(WIN32)
     target_include_directories(Chapter2 PRIVATE
         ../../binaries/SDL2-2.0.18/include)
 
@@ -64,7 +66,7 @@ target_link_libraries(Chapter2 PRIVATE
     ${Vulkan_LIBRARIES}
 )
 
-if (WIN32)
+if(WIN32)
     target_link_libraries(Chapter2 PRIVATE
         SDL2)
 else()
@@ -74,7 +76,7 @@ else()
         SDL2::SDL2)
 endif()
 
-if (WIN32)
+if(WIN32)
     set(DLLS_TO_COPY
         ${CMAKE_CURRENT_SOURCE_DIR}/../../binaries/SDL2-2.0.18/lib/x64/SDL2.dll
     )
@@ -95,17 +97,19 @@ add_custom_target(Chapter2SpvShaders
     SOURCES ${GLSL_SHADERS}
 )
 
-if (WIN32)
+set_target_properties(Chapter2SpvShaders PROPERTIES FOLDER Samples/Chapter02)
+
+if(WIN32)
     file(TO_NATIVE_PATH "$ENV{VULKAN_SDK}/bin/glslc.exe" GLSL_COMPILER)
 else()
     file(TO_NATIVE_PATH "$ENV{VULKAN_SDK}/bin/glslc" GLSL_COMPILER)
 endif()
 
-if (NOT EXISTS ${GLSL_COMPILER})
+if(NOT EXISTS ${GLSL_COMPILER})
     message(FATAL_ERROR "${GLSL_COMPILER} is not a valid path. Please make sure the VULKAN_SDK environment variable is set.")
 endif()
 
-foreach (GLSL_SHADER ${GLSL_SHADERS})
+foreach(GLSL_SHADER ${GLSL_SHADERS})
     add_custom_command(TARGET Chapter2SpvShaders
         COMMAND ${GLSL_COMPILER} ${GLSL_SHADER}
         DEPENDS ${GLSL_SHADER}
