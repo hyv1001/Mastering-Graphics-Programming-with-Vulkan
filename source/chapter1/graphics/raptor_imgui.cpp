@@ -123,8 +123,17 @@ void ImGuiService::init( void* configuration ) {
     // consider calling GetTexDataAsAlpha8() instead to save on GPU memory.
     io.Fonts->GetTexDataAsRGBA32( &pixels, &width, &height );
 
-    TextureCreation texture_creation;// = { pixels, ( u16 )width, ( u16 )height, 1, 1, 0, TextureFormat::R8G8B8A8_UNORM, TextureType::Texture2D };
-    texture_creation.set_format_type( VK_FORMAT_R8G8B8A8_UNORM, TextureType::Texture2D ).set_data( pixels ).set_size( width, height, 1 ).set_flags( 1, 0 ).set_name( "ImGui_Font" );
+    TextureCreation texture_creation{
+        .initial_data = pixels,
+        .width = (u16)width,
+        .height = (u16)height,
+        .depth = 1,
+        .mipmaps = 1,
+        .flags = 0,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .type = TextureType::Texture2D,
+        .name = "ImGui_Font"
+    };
     g_font_texture = gpu->create_texture( texture_creation );
 
     // Store our identifier
@@ -142,47 +151,59 @@ void ImGuiService::init( void* configuration ) {
                        .add_stage( g_fragment_shader_code, ( uint32_t )strlen( g_fragment_shader_code ), VK_SHADER_STAGE_FRAGMENT_BIT );
     }
 
+    DescriptorSetLayoutCreation descriptor_set_layout_creation{};
+    if (gpu->bindless_supported) {
+        descriptor_set_layout_creation.add_binding({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" }).add_binding({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, 1, "Texture" }).set_name("RLL_ImGui");
+    }
+    else {
+        descriptor_set_layout_creation.add_binding({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" }).set_name("RLL_ImGui");
+        descriptor_set_layout_creation.add_binding({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, 1, "LocalConstants" }).set_name("RLL_ImGui");
+    }
 
-    PipelineCreation pipeline_creation = {};
-    pipeline_creation.name = "Pipeline_ImGui";
-    pipeline_creation.shaders = shader_creation;
+
+    g_descriptor_set_layout = gpu->create_descriptor_set_layout(descriptor_set_layout_creation);
+
+    PipelineCreation pipeline_creation = {
+        .rasterization = {},
+        .depth_stencil = {},
+        .blend_state = {},
+        .vertex_input = {
+            .num_vertex_streams = 1,
+            .num_vertex_attributes = 3,
+            .vertex_streams = { { 0, 20, VertexInputRate::PerVertex }},
+            .vertex_attributes = {
+                { 0, 0, 0, VertexComponentFormat::Float2 },
+                { 1, 0, 8, VertexComponentFormat::Float2 },
+                { 2, 0, 16, VertexComponentFormat::UByte4N }}},
+        .shaders = shader_creation,
+        .render_pass = gpu->get_swapchain_output(),
+        .descriptor_set_layout = {g_descriptor_set_layout},
+        .num_active_layouts = 1,
+        .name = "Pipeline_ImGui"
+    };
 
     pipeline_creation.blend_state.add_blend_state().set_color( VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD );
 
-    pipeline_creation.vertex_input.add_vertex_attribute( { 0, 0, 0, VertexComponentFormat::Float2 } )
-        .add_vertex_attribute( { 1, 0, 8, VertexComponentFormat::Float2 } )
-        .add_vertex_attribute( { 2, 0, 16, VertexComponentFormat::UByte4N } );
 
-    pipeline_creation.vertex_input.add_vertex_stream( { 0, 20, VertexInputRate::PerVertex } );
-    pipeline_creation.render_pass = gpu->get_swapchain_output();
-
-    DescriptorSetLayoutCreation descriptor_set_layout_creation{};
-    if ( gpu->bindless_supported ) {
-        descriptor_set_layout_creation.add_binding( { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" } ).add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, 1, "Texture" } ).set_name( "RLL_ImGui" );
-    }
-    else {
-        descriptor_set_layout_creation.add_binding( { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" } ).set_name( "RLL_ImGui" );
-        descriptor_set_layout_creation.add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, 1, "LocalConstants" } ).set_name( "RLL_ImGui" );
-    }
-
-
-    g_descriptor_set_layout = gpu->create_descriptor_set_layout( descriptor_set_layout_creation );
-
-    pipeline_creation.add_descriptor_set_layout( g_descriptor_set_layout );
 
     g_imgui_pipeline = gpu->create_pipeline( pipeline_creation );
 
     // Create constant buffer
-    BufferCreation cb_creation;
-    cb_creation.set( VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, ResourceUsageType::Dynamic, 64 ).set_name( "CB_ImGui" );
+    BufferCreation cb_creation = {
+        .type_flags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        .usage = ResourceUsageType::Dynamic,
+        .size = 64,
+        .name = "CB_ImGui"};
     g_ui_cb = gpu->create_buffer( cb_creation );
 
     // Create descriptor set
-    DescriptorSetCreation ds_creation{};
+    DescriptorSetCreation ds_creation{
+        .layout = pipeline_creation.descriptor_set_layout[0],
+        .name = "RL_ImGui"};
     if ( !gpu->bindless_supported ) {
-        ds_creation.set_layout( pipeline_creation.descriptor_set_layout[0] ).buffer( g_ui_cb, 0 ).texture( g_font_texture, 1 ).set_name( "RL_ImGui" );
+        ds_creation.buffer( g_ui_cb, 0 ).texture( g_font_texture, 1 );
     } else {
-        ds_creation.set_layout( pipeline_creation.descriptor_set_layout[0] ).buffer( g_ui_cb, 0 ).set_name( "RL_ImGui" );
+        ds_creation.buffer( g_ui_cb, 0 );
     }
     g_ui_descriptor_set = gpu->create_descriptor_set( ds_creation );
 
@@ -192,12 +213,18 @@ void ImGuiService::init( void* configuration ) {
     g_texture_to_descriptor_set.insert( g_font_texture.index, g_ui_descriptor_set.index );
 
     // Create vertex and index buffers //////////////////////////////////////////
-    BufferCreation vb_creation;
-    vb_creation.set( VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, ResourceUsageType::Dynamic, g_vb_size ).set_name( "VB_ImGui" );
+    BufferCreation vb_creation{
+        .type_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .usage = ResourceUsageType::Dynamic,
+        .size = g_vb_size,
+        .name = "VB_ImGui"};
     g_vb = gpu->create_buffer( vb_creation );
 
-    BufferCreation ib_creation;
-    ib_creation.set( VK_BUFFER_USAGE_INDEX_BUFFER_BIT, ResourceUsageType::Dynamic, g_ib_size ).set_name( "IB_ImGui" );
+    BufferCreation ib_creation {
+        .type_flags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .usage = ResourceUsageType::Dynamic,
+        .size = g_ib_size,
+        .name = "IB_ImGui"};
     g_ib = gpu->create_buffer( ib_creation );
 }
 
@@ -390,9 +417,11 @@ void ImGuiService::render( raptor::CommandBuffer& commands ) {
                             // If not present
                             if ( it.is_invalid() ) {
                                 // Create new descriptor set
-                                DescriptorSetCreation ds_creation{};
+                                DescriptorSetCreation ds_creation{
+                                    .layout = g_descriptor_set_layout,
+                                    .name = "RL_Dynamic_ImGUI"};
 
-                                ds_creation.set_layout( g_descriptor_set_layout ).buffer( g_ui_cb, 0 ).texture( last_texture, 1 ).set_name( "RL_Dynamic_ImGUI" );
+                                ds_creation.buffer( g_ui_cb, 0 ).texture( last_texture, 1 );
                                 last_descriptor_set = gpu->create_descriptor_set( ds_creation );
 
                                 g_texture_to_descriptor_set.insert( new_texture.index, last_descriptor_set.index );

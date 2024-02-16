@@ -23,6 +23,11 @@ set_target_properties(Chapter1
     PROPERTIES CXX_STANDARD 20
     FOLDER Samples/Chapter01)
 
+if(MSVC)
+    set_target_properties(Chapter1
+        PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+endif()
+
 if(WIN32)
     target_compile_definitions(Chapter1 PRIVATE
         _CRT_SECURE_NO_WARNINGS

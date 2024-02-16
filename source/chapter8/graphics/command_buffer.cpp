@@ -8,7 +8,9 @@
 #include "external/tracy/tracy/Tracy.hpp"
 
 #if defined(_MSC_VER)
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif // !WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 

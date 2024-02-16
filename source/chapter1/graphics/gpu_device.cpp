@@ -518,17 +518,24 @@ void GpuDevice::init( const DeviceCreation& creation ) {
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, k_global_pool_elements },
         { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, k_global_pool_elements}
     };
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = k_global_pool_elements * ArraySize( pool_sizes );
-    pool_info.poolSizeCount = ( u32 )ArraySize( pool_sizes );
-    pool_info.pPoolSizes = pool_sizes;
+    VkDescriptorPoolCreateInfo pool_info {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = k_global_pool_elements * ArraySize( pool_sizes ),
+        .poolSizeCount = ( u32 )ArraySize( pool_sizes ),
+        .pPoolSizes = pool_sizes
+    };
     result = vkCreateDescriptorPool( vulkan_device, &pool_info, vulkan_allocation_callbacks, &vulkan_descriptor_pool );
     check( result );
 
     // Create timestamp query pool used for GPU timings.
-    VkQueryPoolCreateInfo vqpci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr, 0, VK_QUERY_TYPE_TIMESTAMP, creation.gpu_time_queries_per_frame * 2u * k_max_frames, 0 };
+    VkQueryPoolCreateInfo vqpci{
+        .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, 
+        .pNext = nullptr, 
+        .flags = 0, 
+        .queryType = VK_QUERY_TYPE_TIMESTAMP, 
+        .queryCount = creation.gpu_time_queries_per_frame * 2u * k_max_frames, 
+        .pipelineStatistics = 0 };
     vkCreateQueryPool( vulkan_device, &vqpci, vulkan_allocation_callbacks, &vulkan_timestamp_query_pool );
 
     //// Init pools
@@ -580,9 +587,15 @@ void GpuDevice::init( const DeviceCreation& creation ) {
     //
     // Init primitive resources
     //
-    SamplerCreation sc{};
-    sc.set_address_mode_uvw( VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE )
-        .set_min_mag_mip( VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR ).set_name( "Sampler Default" );
+    SamplerCreation sc {
+        .min_filter = VK_FILTER_LINEAR,
+        .mag_filter = VK_FILTER_LINEAR,
+        .mip_filter = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .address_mode_u = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .address_mode_v = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .address_mode_w = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .name = "Sampler Default"
+    };
     default_sampler = create_sampler( sc );
 
     BufferCreation fullscreen_vb_creation = { VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, ResourceUsageType::Immutable, 0, nullptr, "Fullscreen_vb" };
@@ -623,8 +636,11 @@ void GpuDevice::init( const DeviceCreation& creation ) {
     // Dynamic buffer handling
     // TODO:
     dynamic_per_frame_size = 1024 * 1024 * 10;
-    BufferCreation bc;
-    bc.set( VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, ResourceUsageType::Immutable, dynamic_per_frame_size * k_max_frames ).set_name( "Dynamic_Persistent_Buffer" );
+    BufferCreation bc{
+        .type_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .usage = ResourceUsageType::Immutable,
+        .size = dynamic_per_frame_size * k_max_frames,
+        .name = "Dynamic_Persistent_Buffer"};
     dynamic_buffer = create_buffer( bc );
 
     MapBufferParameters cb_map = { dynamic_buffer, 0, 0 };
@@ -2369,8 +2385,16 @@ static void vulkan_resize_texture( GpuDevice& gpu, Texture* v_texture, Texture* 
     v_texture_to_delete->vma_allocation = v_texture->vma_allocation;
 
     // Re-create image in place.
-    TextureCreation tc;
-    tc.set_flags( v_texture->mipmaps, v_texture->flags ).set_format_type( v_texture->vk_format, v_texture->type ).set_name( v_texture->name ).set_size( width, height, depth );
+    TextureCreation tc{
+        .initial_data = nullptr,
+        .width = width,
+        .height = height,
+        .depth = depth,
+        .mipmaps = v_texture->mipmaps,
+        .flags = v_texture->flags,
+        .format = v_texture->vk_format,
+        .type = v_texture->type,
+        .name = v_texture->name};
     vulkan_create_texture( gpu, tc, v_texture->handle, v_texture );
 }
 

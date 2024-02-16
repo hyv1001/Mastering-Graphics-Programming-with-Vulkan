@@ -10,6 +10,10 @@ if(UNIX)
     find_package(SDL2 REQUIRED)
 endif()
 
+if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4267")
+endif()
+
 add_library(RaptorFoundation STATIC
     source/raptor/foundation/array.hpp
     source/raptor/foundation/assert.cpp

@@ -57,8 +57,16 @@ static TextureHandle create_texture_from_file( GpuDevice& gpu, cstring filename,
             return k_invalid_texture;
         }
 
-        TextureCreation creation;
-        creation.set_data( image_data ).set_format_type( VK_FORMAT_R8G8B8A8_UNORM, TextureType::Texture2D ).set_flags( 1, 0 ).set_size( ( u16 )width, ( u16 )height, 1 ).set_name( name );
+        TextureCreation creation = {
+            .initial_data = image_data,
+            .width = ( u16 )width,
+            .height = ( u16 )height,
+            .depth = 1,
+            .mipmaps = 1,
+            .flags = 0,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .type = TextureType::Texture2D,
+            .name = name};
 
         raptor::TextureHandle new_texture = gpu.create_texture( creation );
 

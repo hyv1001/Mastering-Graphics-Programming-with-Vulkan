@@ -3,17 +3,6 @@
 namespace raptor {
 
 
-// DepthStencilCreation ////////////////////////////////////
-
-DepthStencilCreation& DepthStencilCreation::set_depth( bool write, VkCompareOp comparison_test ) {
-    depth_write_enable = write;
-    depth_comparison = comparison_test;
-    // Setting depth like this means we want to use the depth test.
-    depth_enable = 1;
-
-    return *this;
-}
-
 // BlendState  /////////////////////////////////////////////
 BlendState& BlendState::set_color( VkBlendFactor source, VkBlendFactor destination, VkBlendOp operation ) {
     source_color = source;
@@ -48,105 +37,6 @@ BlendStateCreation& BlendStateCreation::reset() {
 
 BlendState& BlendStateCreation::add_blend_state() {
     return blend_states[active_states++];
-}
-
-// BufferCreation //////////////////////////////////////////
-BufferCreation& BufferCreation::reset() {
-    size = 0;
-    initial_data = nullptr;
-
-    return *this;
-}
-
-BufferCreation& BufferCreation::set( VkBufferUsageFlags flags, ResourceUsageType::Enum usage_, u32 size_ ) {
-    type_flags = flags;
-    usage = usage_;
-    size = size_;
-
-    return *this;
-}
-
-BufferCreation& BufferCreation::set_data( void* data_ ) {
-    initial_data = data_;
-
-    return *this;
-}
-
-BufferCreation& BufferCreation::set_name( const char* name_ ) {
-    name = name_;
-
-    return *this;
-}
-
-// TextureCreation /////////////////////////////////////////
-TextureCreation& TextureCreation::set_size( u16 width_, u16 height_, u16 depth_ ) {
-    width = width_;
-    height = height_;
-    depth = depth_;
-
-    return *this;
-}
-
-TextureCreation& TextureCreation::set_flags( u8 mipmaps_, u8 flags_ ) {
-    mipmaps = mipmaps_;
-    flags = flags_;
-
-    return *this;
-}
-
-TextureCreation& TextureCreation::set_format_type( VkFormat format_, TextureType::Enum type_ ) {
-    format = format_;
-    type = type_;
-
-    return *this;
-}
-
-TextureCreation& TextureCreation::set_name( const char* name_ ) {
-    name = name_;
-
-    return *this;
-}
-
-TextureCreation& TextureCreation::set_data( void* data_ ) {
-    initial_data = data_;
-
-    return *this;
-}
-
-// SamplerCreation /////////////////////////////////////////
-SamplerCreation& SamplerCreation::set_min_mag_mip( VkFilter min, VkFilter mag, VkSamplerMipmapMode mip ) {
-    min_filter = min;
-    mag_filter = mag;
-    mip_filter = mip;
-
-    return *this;
-}
-
-SamplerCreation& SamplerCreation::set_address_mode_u( VkSamplerAddressMode u ) {
-    address_mode_u = u;
-
-    return *this;
-}
-
-SamplerCreation& SamplerCreation::set_address_mode_uv( VkSamplerAddressMode u, VkSamplerAddressMode v ) {
-    address_mode_u = u;
-    address_mode_v = v;
-
-    return *this;
-}
-
-SamplerCreation& SamplerCreation::set_address_mode_uvw( VkSamplerAddressMode u, VkSamplerAddressMode v, VkSamplerAddressMode w ) {
-    address_mode_u = u;
-    address_mode_v = v;
-    address_mode_w = w;
-
-    return *this;
-}
-
-SamplerCreation& SamplerCreation::set_name( const char* name_ ) {
-    name = name_;
-
-    return *this;
 }
 
 
@@ -206,11 +96,6 @@ DescriptorSetCreation& DescriptorSetCreation::reset() {
     return *this;
 }
 
-DescriptorSetCreation& DescriptorSetCreation::set_layout( DescriptorSetLayoutHandle layout_ ) {
-    layout = layout_;
-    return *this;
-}
-
 DescriptorSetCreation& DescriptorSetCreation::texture( TextureHandle texture, u16 binding ) {
     // Set a default sampler
     samplers[ num_resources ] = k_invalid_sampler;
@@ -230,11 +115,6 @@ DescriptorSetCreation& DescriptorSetCreation::texture_sampler( TextureHandle tex
     bindings[ num_resources ] = binding;
     resources[ num_resources ] = texture.index;
     samplers[ num_resources++ ] = sampler;
-    return *this;
-}
-
-DescriptorSetCreation& DescriptorSetCreation::set_name( cstring name_ ) {
-    name = name_;
     return *this;
 }
 
@@ -283,11 +163,6 @@ RenderPassOutput& RenderPassOutput::set_operations( RenderPassOperation::Enum co
     return *this;
 }
 
-// PipelineCreation ////////////////////////////////////////
-PipelineCreation& PipelineCreation::add_descriptor_set_layout( DescriptorSetLayoutHandle handle ) {
-    descriptor_set_layout[num_active_layouts++] = handle;
-    return *this;
-}
 
 RenderPassOutput& PipelineCreation::render_pass_output() {
     return render_pass;

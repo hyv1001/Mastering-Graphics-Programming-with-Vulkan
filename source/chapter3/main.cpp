@@ -950,7 +950,7 @@ void glTFScene::prepare_draws( raptor::Renderer* renderer, raptor::StackAllocato
 
     scratch_allocator->free_marker( cached_scratch_size );
 
-    glTF::Scene& root_gltf_scene = gltf_scene.scenes[ gltf_scene.scene ];
+    glTF::Scene& root_gltf_scene = gltf_scene.scenes[ gltf_scene.scene_index ];
 
     for ( u32 node_index = 0; node_index < root_gltf_scene.nodes_count; ++node_index ) {
         glTF::Node& node = gltf_scene.nodes[ root_gltf_scene.nodes[ node_index ] ];

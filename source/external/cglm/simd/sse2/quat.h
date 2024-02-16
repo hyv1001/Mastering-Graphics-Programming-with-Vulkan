@@ -16,10 +16,10 @@ CGLM_INLINE
 void
 glm_quat_mul_sse2(versor p, versor q, versor dest) {
   /*
-   + (a1 b2 + b1 a2 + c1 d2 − d1 c2)i
-   + (a1 c2 − b1 d2 + c1 a2 + d1 b2)j
-   + (a1 d2 + b1 c2 − c1 b2 + d1 a2)k
-     a1 a2 − b1 b2 − c1 c2 − d1 d2
+   + (a1 b2 + b1 a2 + c1 d2 - d1 c2)i
+   + (a1 c2 - b1 d2 + c1 a2 + d1 b2)j
+   + (a1 d2 + b1 c2 - c1 b2 + d1 a2)k
+     a1 a2 - b1 b2 - c1 c2 - d1 d2
    */
 
   __m128 xp, xq, x1, x2, x3, r, x, y, z;

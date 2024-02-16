@@ -605,7 +605,7 @@ void glTFScene::add_mesh( cstring filename, cstring path, StackAllocator* temp_a
 
     Material* pbr_material = renderer->create_material( material_creation );
 
-    glTF::Scene& root_gltf_scene = gltf_scene.scenes[ gltf_scene.scene ];
+    glTF::Scene& root_gltf_scene = gltf_scene.scenes[ gltf_scene.scene_index ];
 
     //
     Array<i32> nodes_to_visit;

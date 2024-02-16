@@ -518,7 +518,7 @@ void glTFScene::prepare_draws( Renderer* renderer, StackAllocator* scratch_alloc
 
     Material* pbr_material = renderer->create_material( material_creation );
 
-    glTF::Scene& root_gltf_scene = gltf_scene.scenes[ gltf_scene.scene ];
+    glTF::Scene& root_gltf_scene = gltf_scene.scenes[ gltf_scene.scene_index ];
 
     //
     Array<i32> nodes_to_visit;

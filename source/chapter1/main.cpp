@@ -136,188 +136,8 @@ static u8* get_buffer_data( raptor::glTF::BufferView* buffer_views, u32 buffer_i
     return data;
 }
 
-int main( int argc, char** argv ) {
-
-    if ( argc < 2 ) {
-        printf( "Usage: chapter1 [path to glTF model]\n");
-        InjectDefault3DModel();
-    }
-
-    using namespace raptor;
-    // Init services
-    MemoryService::instance()->init( nullptr );
-    time_service_init();
-
-    Allocator* allocator = &MemoryService::instance()->system_allocator;
-
-    StackAllocator scratch_allocator;
-    scratch_allocator.init( rmega( 8 ) );
-
-    // window
-    WindowConfiguration wconf{ 1280, 800, "Raptor Test", allocator };
-    raptor::Window window;
-    window.init( &wconf );
-
-    InputService input_handler;
-    input_handler.init( allocator );
-
-    // Callback register
-    window.register_os_messages_callback( input_os_messages_callback, &input_handler );
-
-    // graphics
-    DeviceCreation dc;
-    dc.set_window( window.width, window.height, window.platform_handle ).set_allocator( allocator ).set_linear_allocator( &scratch_allocator );
-    GpuDevice gpu;
-    gpu.init( dc );
-
-    ResourceManager rm;
-    rm.init( allocator, nullptr );
-
-    GPUProfiler gpu_profiler;
-    gpu_profiler.init( allocator, 100 );
-
-    Renderer renderer;
-    renderer.init( { &gpu, allocator } );
-    renderer.set_loaders( &rm );
-
-    ImGuiService* imgui = ImGuiService::instance();
-    ImGuiServiceConfiguration imgui_config{ &gpu, window.platform_handle };
-    imgui->init( &imgui_config );
-
-    Directory cwd{ };
-    directory_current(&cwd);
-
-    char gltf_base_path[512]{ };
-    memcpy( gltf_base_path, argv[ 1 ], strlen( argv[ 1] ) );
-    file_directory_from_path( gltf_base_path );
-
-    directory_change( gltf_base_path );
-
-    char gltf_file[512]{ };
-    memcpy( gltf_file, argv[ 1 ], strlen( argv[ 1] ) );
-    file_name_from_path( gltf_file );
-
-    glTF::glTF scene = gltf_load_file( gltf_file );
-
-    Array<TextureResource> images;
-    images.init( allocator, scene.images_count );
-
-    for ( u32 image_index = 0; image_index < scene.images_count; ++image_index ) {
-        glTF::Image& image = scene.images[ image_index ];
-        TextureResource* tr = renderer.create_texture( image.uri.data, image.uri.data );
-        RASSERT( tr != nullptr );
-
-        images.push( *tr );
-    }
-
-    TextureCreation texture_creation{ };
-    u32 zero_value = 0;
-    texture_creation.set_name( "dummy_texture" ).set_size( 1, 1, 1 ).set_format_type( VK_FORMAT_R8G8B8A8_UNORM, TextureType::Texture2D ).set_flags( 1, 0 ).set_data( &zero_value );
-    TextureHandle dummy_texture = gpu.create_texture( texture_creation );
-
-    SamplerCreation sampler_creation{ };
-    sampler_creation.min_filter = VK_FILTER_LINEAR;
-    sampler_creation.mag_filter = VK_FILTER_LINEAR;
-    sampler_creation.address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler_creation.address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    SamplerHandle dummy_sampler = gpu.create_sampler( sampler_creation );
-
-    StringBuffer resource_name_buffer;
-    resource_name_buffer.init( rkilo( 64 ), allocator );
-
-    Array<SamplerResource> samplers;
-    samplers.init( allocator, scene.samplers_count );
-
-    for ( u32 sampler_index = 0; sampler_index < scene.samplers_count; ++sampler_index ) {
-        glTF::Sampler& sampler = scene.samplers[ sampler_index ];
-
-        char* sampler_name = resource_name_buffer.append_use_f( "sampler_%u", sampler_index );
-
-        SamplerCreation creation;
-        creation.min_filter = sampler.min_filter == glTF::Sampler::Filter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-        creation.mag_filter = sampler.mag_filter == glTF::Sampler::Filter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-        creation.name = sampler_name;
-
-        SamplerResource* sr = renderer.create_sampler( creation );
-        RASSERT( sr != nullptr );
-
-        samplers.push( *sr );
-    }
-
-    Array<void*> buffers_data;
-    buffers_data.init( allocator, scene.buffers_count );
-
-    for ( u32 buffer_index = 0; buffer_index < scene.buffers_count; ++buffer_index ) {
-        glTF::Buffer& buffer = scene.buffers[ buffer_index ];
-
-        FileReadResult buffer_data = file_read_binary( buffer.uri.data, allocator );
-        buffers_data.push( buffer_data.data );
-    }
-
-    Array<BufferResource> buffers;
-    buffers.init( allocator, scene.buffer_views_count );
-
-    for ( u32 buffer_index = 0; buffer_index < scene.buffer_views_count; ++buffer_index ) {
-        char* buffer_name = nullptr;
-        u32 buffer_size = 0;
-        u8* data = get_buffer_data( scene.buffer_views, buffer_index, buffers_data, &buffer_size, &buffer_name );
-
-        // NOTE(marco): the target attribute of a BufferView is not mandatory, so we prepare for both uses
-        VkBufferUsageFlags flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
-        if ( buffer_name == nullptr ) {
-            buffer_name = resource_name_buffer.append_use_f( "buffer_%u", buffer_index );
-        } else {
-            // NOTE(marco); some buffers might have the same name, which causes issues in the renderer cache
-            buffer_name = resource_name_buffer.append_use_f( "%s_%u", buffer_name, buffer_index );
-        }
-
-        BufferResource* br = renderer.create_buffer( flags, ResourceUsageType::Immutable, buffer_size, data, buffer_name );
-        RASSERT( br != nullptr);
-
-        buffers.push( *br );
-    }
-
-    // NOTE(marco): restore working directory
-    directory_change( cwd.path );
-
-    Array<MeshDraw> mesh_draws;
-    mesh_draws.init( allocator, scene.meshes_count );
-
-    Array<BufferHandle> custom_mesh_buffers{ };
-    custom_mesh_buffers.init( allocator, 8 );
-
-    vec4s dummy_data[ 3 ]{ };
-    BufferCreation buffer_creation{ };
-    buffer_creation.set( VK_BUFFER_USAGE_VERTEX_BUFFER_BIT , ResourceUsageType::Immutable, sizeof( vec4s ) * 3 ).set_data( dummy_data ).set_name( "dummy_attribute_buffer" );
-
-    BufferHandle dummy_attribute_buffer = gpu.create_buffer( buffer_creation );
-
-    {
-        // Create pipeline state
-        PipelineCreation pipeline_creation;
-
-        // Vertex input
-        // TODO(marco): component format should be based on buffer view type
-        pipeline_creation.vertex_input.add_vertex_attribute( { 0, 0, 0, VertexComponentFormat::Float3 } ); // position
-        pipeline_creation.vertex_input.add_vertex_stream( { 0, 12, VertexInputRate::PerVertex } );
-
-        pipeline_creation.vertex_input.add_vertex_attribute( { 1, 1, 0, VertexComponentFormat::Float4 } ); // tangent
-        pipeline_creation.vertex_input.add_vertex_stream( { 1, 16, VertexInputRate::PerVertex} );
-
-        pipeline_creation.vertex_input.add_vertex_attribute( { 2, 2, 0, VertexComponentFormat::Float3 } ); // normal
-        pipeline_creation.vertex_input.add_vertex_stream( { 2, 12, VertexInputRate::PerVertex } );
-
-        pipeline_creation.vertex_input.add_vertex_attribute( { 3, 3, 0, VertexComponentFormat::Float2 } ); // texcoord
-        pipeline_creation.vertex_input.add_vertex_stream( { 3, 8, VertexInputRate::PerVertex} );
-
-        // Render pass
-        pipeline_creation.render_pass = gpu.get_swapchain_output();
-        // Depth
-        pipeline_creation.depth_stencil.set_depth( true, VK_COMPARE_OP_LESS_OR_EQUAL );
-
-        // Shader state
-        const char* vs_code = R"FOO(#version 450
+// Shader state
+const char* vs_code = R"FOO(#version 450
 uint MaterialFeatures_ColorTexture     = 1 << 0;
 uint MaterialFeatures_NormalTexture    = 1 << 1;
 uint MaterialFeatures_RoughnessTexture = 1 << 2;
@@ -371,7 +191,7 @@ void main() {
 }
 )FOO";
 
-        const char* fs_code = R"FOO(#version 450
+const char* fs_code = R"FOO(#version 450
 uint MaterialFeatures_ColorTexture     = 1 << 0;
 uint MaterialFeatures_NormalTexture    = 1 << 1;
 uint MaterialFeatures_RoughnessTexture = 1 << 2;
@@ -585,29 +405,278 @@ void main() {
 }
 )FOO";
 
-        pipeline_creation.shaders.set_name( "Cube" ).add_stage( vs_code, ( uint32_t )strlen( vs_code ), VK_SHADER_STAGE_VERTEX_BIT ).add_stage( fs_code, ( uint32_t )strlen( fs_code ), VK_SHADER_STAGE_FRAGMENT_BIT );
+using namespace raptor;
 
+void createImagesFromGLTF(const glTF::glTF& scene, Renderer& renderer, Array<TextureResource>& out_images, Allocator* allocator)
+{
+    out_images.init(allocator, scene.images_count);
+
+    for (u32 image_index = 0; image_index < scene.images_count; ++image_index) {
+        glTF::Image& image = scene.images[image_index];
+        TextureResource* tr = renderer.create_texture(image.uri.data, image.uri.data);
+        RASSERT(tr != nullptr);
+
+        out_images.push(*tr);
+    }
+}
+
+void createSamplersFromGLTF(
+    const glTF::glTF& scene, 
+    Renderer& renderer, 
+    Array<SamplerResource>& out_samplers, 
+    Allocator* allocator, 
+    StringBuffer& resource_name_buffer)
+{
+    out_samplers.init(allocator, scene.samplers_count);
+
+    for (u32 sampler_index = 0; sampler_index < scene.samplers_count; ++sampler_index) {
+        glTF::Sampler& sampler = scene.samplers[sampler_index];
+
+        char* sampler_name = resource_name_buffer.append_use_f("sampler_%u", sampler_index);
+
+        SamplerCreation creation{
+            .min_filter = sampler.min_filter == glTF::Sampler::Filter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST,
+            .mag_filter = sampler.mag_filter == glTF::Sampler::Filter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST,
+            .name = sampler_name
+        };
+
+        SamplerResource* sr = renderer.create_sampler(creation);
+        RASSERT(sr != nullptr);
+
+        out_samplers.push(*sr);
+    }
+}
+
+void createBuffersFromGLTF(
+    const glTF::glTF& scene, 
+    Renderer& renderer, 
+    Array<void*>& out_raw_buffers_data,
+    Array<BufferResource>& out_buffers, 
+    Allocator* allocator,
+    StringBuffer& resource_name_buffer)
+{
+    out_raw_buffers_data.init(allocator, scene.buffers_count);
+
+    for (u32 buffer_index = 0; buffer_index < scene.buffers_count; ++buffer_index) {
+        glTF::Buffer& buffer = scene.buffers[buffer_index];
+
+        FileReadResult buffer_data = file_read_binary(buffer.uri.data, allocator);
+        out_raw_buffers_data.push(buffer_data.data);
+    }
+
+    out_buffers.init(allocator, scene.buffer_views_count);
+
+    for (u32 buffer_index = 0; buffer_index < scene.buffer_views_count; ++buffer_index) {
+        char* buffer_name = nullptr;
+        u32 buffer_size = 0;
+        u8* data = get_buffer_data(scene.buffer_views, buffer_index, out_raw_buffers_data, &buffer_size, &buffer_name);
+
+        // NOTE(marco): the target attribute of a BufferView is not mandatory, so we prepare for both uses
+        VkBufferUsageFlags flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+        if (buffer_name == nullptr) {
+            buffer_name = resource_name_buffer.append_use_f("buffer_%u", buffer_index);
+        }
+        else {
+            // NOTE(marco); some buffers might have the same name, which causes issues in the renderer cache
+            buffer_name = resource_name_buffer.append_use_f("%s_%u", buffer_name, buffer_index);
+        }
+
+        BufferResource* br = renderer.create_buffer(flags, ResourceUsageType::Immutable, buffer_size, data, buffer_name);
+        RASSERT(br != nullptr);
+
+        out_buffers.push(*br);
+    }
+}
+
+int main( int argc, char** argv ) {
+
+    if ( argc < 2 ) {
+        printf( "Usage: chapter1 [path to glTF model]\n");
+        InjectDefault3DModel();
+    }
+
+
+    // Init services
+    MemoryService::instance()->init( nullptr );
+    time_service_init();
+
+    Allocator* allocator = &MemoryService::instance()->system_allocator;
+
+    StackAllocator scratch_allocator;
+    scratch_allocator.init( rmega( 8 ) );
+
+    // window
+    WindowConfiguration wconf{ 1280, 800, "Raptor Test", allocator };
+    raptor::Window window;
+    window.init( &wconf );
+
+    InputService input_handler;
+    input_handler.init( allocator );
+
+    // Callback register
+    window.register_os_messages_callback( input_os_messages_callback, &input_handler );
+
+    // graphics
+    DeviceCreation dc;
+    dc.set_window( window.width, window.height, window.platform_handle ).set_allocator( allocator ).set_linear_allocator( &scratch_allocator );
+    GpuDevice gpu;
+    gpu.init( dc );
+
+    ResourceManager rm;
+    rm.init( allocator, nullptr );
+
+    GPUProfiler gpu_profiler;
+    gpu_profiler.init( allocator, 100 );
+
+    Renderer renderer;
+    renderer.init( { &gpu, allocator } );
+    renderer.set_loaders( &rm );
+
+    ImGuiService* imgui = ImGuiService::instance();
+    ImGuiServiceConfiguration imgui_config{ &gpu, window.platform_handle };
+    imgui->init( &imgui_config );
+
+    Directory cwd{ };
+    directory_current(&cwd);
+
+    char gltf_base_path[512]{ };
+    memcpy( gltf_base_path, argv[ 1 ], strlen( argv[ 1] ) );
+    file_directory_from_path( gltf_base_path );
+
+    directory_change( gltf_base_path );
+
+    char gltf_file[512]{ };
+    memcpy( gltf_file, argv[ 1 ], strlen( argv[ 1] ) );
+    file_name_from_path( gltf_file );
+
+    glTF::glTF scene = gltf_load_file( gltf_file );
+
+    auto camera_count = scene.cameras_count;
+    printf("Cameras Count: %u\n", camera_count );
+
+
+    StringBuffer resource_name_buffer;
+    resource_name_buffer.init(rkilo(64), allocator);
+
+    Array<TextureResource> images;
+    createImagesFromGLTF(scene, renderer, images, allocator);
+
+    Array<SamplerResource> samplers;
+    createSamplersFromGLTF(scene, renderer, samplers, allocator, resource_name_buffer);
+
+    Array<void*> buffers_data;
+    Array<BufferResource> buffers;
+    createBuffersFromGLTF(scene, renderer, buffers_data, buffers, allocator, resource_name_buffer);
+
+    u32 zero_value = 0;
+    TextureCreation dummy_texture_creation {
+        .initial_data = &zero_value,
+        .width = 1,
+        .height = 1,
+        .depth = 1,
+        .mipmaps = 1,
+        .flags = 0,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .type = TextureType::Texture2D,
+        .name = "dummy_texture"
+    };
+
+    TextureHandle dummy_texture = gpu.create_texture(dummy_texture_creation);
+
+    SamplerCreation dummy_sampler_creation {
+        .min_filter = VK_FILTER_LINEAR,
+        .mag_filter = VK_FILTER_LINEAR,
+        .address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .name = "dummy_sampler"
+    };
+
+    SamplerHandle dummy_sampler = gpu.create_sampler(dummy_sampler_creation);
+
+    // NOTE(marco): restore working directory
+    directory_change( cwd.path );
+
+    Array<MeshDraw> mesh_draws;
+    mesh_draws.init( allocator, scene.meshes_count );
+
+    Array<BufferHandle> custom_mesh_buffers{ };
+    custom_mesh_buffers.init( allocator, 8 );
+
+    vec4s dummy_data[ 3 ]{ };
+    BufferCreation dummy_buffer_creation{
+        .type_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .usage = ResourceUsageType::Immutable,
+        .size = sizeof(vec4s) * 3,
+        .initial_data = dummy_data,
+        .name = "dummy_attribute_buffer" };
+
+    BufferHandle dummy_attribute_buffer = gpu.create_buffer(dummy_buffer_creation);
+
+    {
         // Descriptor set layout
-        DescriptorSetLayoutCreation cube_rll_creation{};
-        cube_rll_creation.add_binding( { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" } );
-        cube_rll_creation.add_binding( { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, 1, "MaterialConstant" } );
-        cube_rll_creation.add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, 1, "diffuseTexture" } );
-        cube_rll_creation.add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, 1, "roughnessMetalnessTexture" } );
-        cube_rll_creation.add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, 1, "roughnessMetalnessTexture" } );
-        cube_rll_creation.add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, 1, "emissiveTexture" } );
-        cube_rll_creation.add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, 1, "occlusionTexture" } );
+        DescriptorSetLayoutCreation cube_rll_creation {
+            .bindings {
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, 1, "MaterialConstant" },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, 1, "diffuseTexture" },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, 1, "roughnessMetalnessTexture" },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, 1, "roughnessMetalnessTexture" },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, 1, "emissiveTexture" },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, 1, "occlusionTexture" }},
+            .num_bindings = 7
+        };
         // Setting it into pipeline
-        cube_dsl = gpu.create_descriptor_set_layout( cube_rll_creation );
-        pipeline_creation.add_descriptor_set_layout( cube_dsl );
+        cube_dsl = gpu.create_descriptor_set_layout(cube_rll_creation);
+
+        // Create pipeline state
+        PipelineCreation pipeline_creation{
+            .rasterization = {},
+            .depth_stencil = {
+                .depth_comparison = VK_COMPARE_OP_LESS_OR_EQUAL,
+                .depth_enable = 1,
+                .depth_write_enable = 1,
+                .stencil_enable = 0},
+            .blend_state = {},
+            .vertex_input = {
+                // TODO(marco): component format should be based on buffer view type
+                .num_vertex_streams = 4,
+                .num_vertex_attributes = 4,
+                .vertex_streams = {
+                    { 0, 12, VertexInputRate::PerVertex },  // position
+                    { 1, 16, VertexInputRate::PerVertex },  // tangent
+                    { 2, 12, VertexInputRate::PerVertex },  // normal
+                    { 3, 8, VertexInputRate::PerVertex }},  // texcoord
+                .vertex_attributes = {
+                    {0, 0, 0, VertexComponentFormat::Float3},   // position
+                    {1, 1, 0, VertexComponentFormat::Float4},   // tangent
+                    {2, 2, 0, VertexComponentFormat::Float3},   // normal
+                    {3, 3, 0, VertexComponentFormat::Float2}}}, // texcoord
+                
+            .shaders = {
+                .stages = {
+                    {vs_code, (uint32_t)strlen(vs_code), VK_SHADER_STAGE_VERTEX_BIT},
+                    {fs_code, (uint32_t)strlen(fs_code), VK_SHADER_STAGE_FRAGMENT_BIT}},
+                .name = "Cube",
+                .stages_count = 2},
+            .render_pass = gpu.get_swapchain_output(),
+            .descriptor_set_layout = { {cube_dsl} },
+            .num_active_layouts = 1
+        };
 
         // Constant buffer
-        BufferCreation buffer_creation;
-        buffer_creation.reset().set( VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, ResourceUsageType::Dynamic, sizeof( UniformData ) ).set_name( "cube_cb" );
+        BufferCreation buffer_creation {
+            .type_flags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .usage = ResourceUsageType::Dynamic,
+            .size = sizeof(UniformData),
+            .initial_data = nullptr,
+            .name = "cube_cb"
+        };
         cube_cb = gpu.create_buffer( buffer_creation );
 
         cube_pipeline = gpu.create_pipeline( pipeline_creation );
 
-        glTF::Scene& root_gltf_scene = scene.scenes[ scene.scene ];
+        const glTF::Scene& root_gltf_scene = scene.scenes[ scene.scene_index ];
 
         Array<i32> node_parents;
         node_parents.init( allocator, scene.nodes_count, scene.nodes_count );
@@ -655,10 +724,11 @@ void main() {
                     node_rotation = glms_quat_init( node.rotation[ 0 ], node.rotation[ 1 ], node.rotation[ 2 ], node.rotation[ 3 ] );
                 }
 
-                Transform transform;
-                transform.translation = node_translation;
-                transform.scale = node_scale;
-                transform.rotation = node_rotation;
+                Transform transform{
+                    .scale = node_scale,
+                    .rotation = node_rotation,
+                    .translation = node_translation
+                };
 
                 local_matrix = transform.calculate_matrix();
             }
@@ -766,8 +836,12 @@ void main() {
                         normals_array[ vertex ] = glms_normalize( normals_array[ vertex ] );
                     }
 
-                    BufferCreation normals_creation{ };
-                    normals_creation.set( VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, ResourceUsageType::Immutable, normals_array.size * sizeof( vec3s ) ).set_name( "normals" ).set_data( normals_array.data );
+                    BufferCreation normals_creation{
+                        .type_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                        .usage = ResourceUsageType::Immutable,
+                        .size = normals_array.size * sizeof(vec3s),
+                        .initial_data = normals_array.data,
+                        .name = "normals"};
 
                     mesh_draw.normal_buffer = gpu.create_buffer( normals_creation );
                     mesh_draw.normal_offset = 0;
@@ -803,11 +877,17 @@ void main() {
                 glTF::Material& material = scene.materials[ mesh_primitive.material ];
 
                 // Descriptor Set
-                DescriptorSetCreation ds_creation{};
-                ds_creation.set_layout( cube_dsl ).buffer( cube_cb, 0 );
+                DescriptorSetCreation ds_creation{
+                    .layout = cube_dsl,
+                    .name = ""};
+                ds_creation.buffer( cube_cb, 0 );
 
-                buffer_creation.reset().set( VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, ResourceUsageType::Dynamic, sizeof( MaterialData ) ).set_name( "material" );
-                mesh_draw.material_buffer = gpu.create_buffer( buffer_creation );
+                BufferCreation material_buffer{
+                    .type_flags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                    .usage = ResourceUsageType::Dynamic,
+                    .size = sizeof(MaterialData),
+                    .name = "material"};
+                mesh_draw.material_buffer = gpu.create_buffer(material_buffer);
                 ds_creation.buffer( mesh_draw.material_buffer, 1 );
 
                 if ( material.pbr_metallic_roughness != nullptr ) {

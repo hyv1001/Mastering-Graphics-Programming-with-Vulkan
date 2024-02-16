@@ -4,7 +4,7 @@
 #include "platform.hpp"
 #include "string.hpp"
 
-static const char* kDefault3DModel = "../../deps/src/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
+static const char* kDefault3DModel = "../deps/src/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
 
 #define InjectDefault3DModel() \
     if (raptor::file_exists(kDefault3DModel)) {\
@@ -302,7 +302,7 @@ namespace glTF {
         Node*                       nodes;
         u32                         samplers_count;
         Sampler*                    samplers;
-        i32                         scene;
+        i32                         scene_index;
         u32                         scenes_count;
         Scene*                      scenes;
         u32                         skins_count;

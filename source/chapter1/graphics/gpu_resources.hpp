@@ -136,12 +136,6 @@ struct DepthStencilCreation {
     u8                              stencil_enable      : 1;
     u8                              pad                 : 5;
 
-    // Default constructor
-    DepthStencilCreation() : depth_enable( 0 ), depth_write_enable( 0 ), stencil_enable( 0 ) {
-    }
-
-    DepthStencilCreation&           set_depth( bool write, VkCompareOp comparison_test );
-
 }; // struct DepthStencilCreation
 
 struct BlendState {
@@ -199,12 +193,6 @@ struct BufferCreation {
     void*                           initial_data = nullptr;
 
     const char*                     name    = nullptr;
-
-    BufferCreation&                 reset();
-    BufferCreation&                 set( VkBufferUsageFlags flags, ResourceUsageType::Enum usage, u32 size );
-    BufferCreation&                 set_data( void* data );
-    BufferCreation&                 set_name( const char* name );
-
 }; // struct BufferCreation
 
 //
@@ -222,13 +210,6 @@ struct TextureCreation {
     TextureType::Enum               type            = TextureType::Texture2D;
 
     const char*                     name            = nullptr;
-
-    TextureCreation&                set_size( u16 width, u16 height, u16 depth );
-    TextureCreation&                set_flags( u8 mipmaps, u8 flags );
-    TextureCreation&                set_format_type( VkFormat format, TextureType::Enum type );
-    TextureCreation&                set_name( const char* name );
-    TextureCreation&                set_data( void* data );
-
 }; // struct TextureCreation
 
 //
@@ -244,13 +225,6 @@ struct SamplerCreation {
     VkSamplerAddressMode            address_mode_w = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 
     const char*                     name = nullptr;
-
-    SamplerCreation&                set_min_mag_mip( VkFilter min, VkFilter mag, VkSamplerMipmapMode mip );
-    SamplerCreation&                set_address_mode_u( VkSamplerAddressMode u );
-    SamplerCreation&                set_address_mode_uv( VkSamplerAddressMode u, VkSamplerAddressMode v );
-    SamplerCreation&                set_address_mode_uvw( VkSamplerAddressMode u, VkSamplerAddressMode v, VkSamplerAddressMode w );
-    SamplerCreation&                set_name( const char* name );
-
 }; // struct SamplerCreation
 
 //
@@ -326,11 +300,9 @@ struct DescriptorSetCreation {
 
     // Building helpers
     DescriptorSetCreation&          reset();
-    DescriptorSetCreation&          set_layout( DescriptorSetLayoutHandle layout );
     DescriptorSetCreation&          texture( TextureHandle texture, u16 binding );
     DescriptorSetCreation&          buffer( BufferHandle buffer, u16 binding );
     DescriptorSetCreation&          texture_sampler( TextureHandle texture, SamplerHandle sampler, u16 binding );   // TODO: separate samplers from textures
-    DescriptorSetCreation&          set_name( cstring name );
 
 }; // struct DescriptorSetCreation
 
@@ -445,7 +417,6 @@ struct PipelineCreation {
 
     const char*                     name = nullptr;
 
-    PipelineCreation&               add_descriptor_set_layout( DescriptorSetLayoutHandle handle );
     RenderPassOutput&               render_pass_output();
 
 }; // struct PipelineCreation

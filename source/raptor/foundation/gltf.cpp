@@ -567,7 +567,7 @@ glTF::glTF gltf_load_file( cstring file_path ) {
         if ( properties.key() == "asset" ) {
             load_asset( gltf_data, result.asset, allocator );
         } else if ( properties.key() == "scene" ) {
-            try_load_int( gltf_data, "scene", result.scene );
+            try_load_int( gltf_data, "scene", result.scene_index );
         } else if ( properties.key() == "scenes" ) {
             load_scenes( gltf_data, result, allocator );
         } else if ( properties.key() == "buffers" ) {

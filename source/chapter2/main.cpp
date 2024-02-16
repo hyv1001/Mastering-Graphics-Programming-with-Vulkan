@@ -594,7 +594,7 @@ int main( int argc, char** argv ) {
         allocator->deallocate( vert_code.data );
         allocator->deallocate( frag_code.data );
 
-        glTF::Scene& root_gltf_scene = scene.gltf_scene.scenes[ scene.gltf_scene.scene ];
+        glTF::Scene& root_gltf_scene = scene.gltf_scene.scenes[ scene.gltf_scene.scene_index ];
 
         for ( u32 node_index = 0; node_index < root_gltf_scene.nodes_count; ++node_index )
         {
